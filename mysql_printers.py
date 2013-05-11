@@ -4,7 +4,7 @@ import gdb
 import gdb.printing
 import exceptions
 
-def nice_str(v):
+def nice_str(v, length=None):
   if v == 0:
     return "NULL"
   else:
@@ -14,7 +14,10 @@ def nice_str(v):
     except gdb.MemoryError:
       return "(invalid)"
     try:
-      return v.string()
+      if length is not None:
+        return '"%s"' % v.string(length=length)
+      else:
+        return '"%s"' % v.string()
     except UnicodeDecodeError:
       return "(garbage)"
 
@@ -33,18 +36,62 @@ class MysqlPrinter(object):
   def display_hint(self):
     return "array"
 
-def mysql_lookup_function(val):
-  lookup_tag = val.type.tag
-  print "foo: %s" % lookup_tag
-  if lookup_tag is None:
-    return None
+class MysqlResultPrinter(object):
+  def __init__(self, val):
+    self.val = val
 
-  if lookup_tag == "MYSQL":
-    return MysqlPrinter(val)
+  def to_string(self):
+    fields = []
+    for i in range(int(self.val["data"]["fields"])):
+      fields.append(self.val["fields"][i])
+
+    return ("MYSQ_RES of %d rows; fields = { %s }" %
+            (self.val["row_count"], ", ".join(str(f) for f in fields)))
+
+  def display_hint(self):
+    return "array"
+
+  def children(self):
+    return self._result_iterator(self.val)
+
+  class _result_iterator(object):
+    def __init__(self, val):
+      self.val = val
+      self.current_row = self.val["data"]["data"]
+      self.row_count = int(self.val["data"]["rows"])
+      self.field_count = int(self.val["data"]["fields"])
+      self.row_number = 0
+
+    def __iter__(self):
+      return self
+
+    def next(self):
+      if self.current_row is None:
+        raise StopIteration
+
+      row = self.current_row
+      self.current_row = self.current_row["next"]
+      self.row_number += 1
+      return ("[%d]" % (self.row_number - 1),
+              "(%s)" % ",".join(nice_str(row["data"][idx], row["data"][idx + 1] - row["data"][idx] - 1)
+                                for idx in range(self.field_count)))
+
+class MysqlFieldPrinter(object):
+  def __init__(self, val):
+    self.val = val
+
+  def to_string(self):
+    return ("MYSQL_FIELD(%s, type %d)" % (nice_str(self.val["name"]), self.val["type"]))
+
+  def display_hint(self):
+    return "array"
+
+
 
 def build_pretty_printer():
-  print "registering types"
   pp = gdb.printing.RegexpCollectionPrettyPrinter("mysql_printers")
-  pp.add_printer('MYSQL', r'st_mysql', MysqlPrinter)
+  pp.add_printer('MYSQL', r'^st_mysql$', MysqlPrinter)
+  pp.add_printer('MYSQL_RES', r'^st_mysql_res$', MysqlResultPrinter)
+  pp.add_printer('MYSQL_FIELD', r'^st_mysql_field$', MysqlFieldPrinter)
   return pp
                                          

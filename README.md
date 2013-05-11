@@ -15,6 +15,6 @@ Put this in your .gdbinit:
     import gdb.printing
     import mysql_printers
     gdb.printing.register_pretty_printer(
-	gdb.current_objfile(),
-	mysql_printers.build_pretty_printer())
+        gdb.current_objfile(),
+        mysql_printers.build_pretty_printer())
     end

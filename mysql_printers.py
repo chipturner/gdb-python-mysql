@@ -2,6 +2,21 @@
 
 import gdb
 import gdb.printing
+import exceptions
+
+def nice_str(v):
+  if v == 0:
+    return "NULL"
+  else:
+    inferior = gdb.selected_inferior()
+    try:
+      readable = inferior.read_memory(v, 1)
+    except gdb.MemoryError:
+      return "(invalid)"
+    try:
+      return v.string()
+    except UnicodeDecodeError:
+      return "(garbage)"
 
 class MysqlPrinter(object):
   "Print a MYSQL structure"
@@ -10,10 +25,13 @@ class MysqlPrinter(object):
     self.val = val
 
   def to_string(self):
-    return "MYSQL connection <%s:%s as %s to %s>" % (self.val["host"], self.val["port"], self.val["user"], self.val["db"])
+    return ("MYSQL connection to %s:%s as %s of db %s, "
+            "with client status %s and server status %s" %
+            (nice_str(self.val["host"]), self.val["port"], nice_str(self.val["user"]),
+             nice_str(self.val["db"]), self.val["status"], self.val["server_status"]))
 
   def display_hint(self):
-    return "string"
+    return "array"
 
 def mysql_lookup_function(val):
   lookup_tag = val.type.tag

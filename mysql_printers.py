@@ -85,15 +85,17 @@ class MysqlResultPrinter(object):
       return self
 
     def next(self):
-      if self.current_row is None:
+      if not self.current_row:
         raise StopIteration
 
       row = self.current_row
       self.current_row = self.current_row["next"]
       self.row_number += 1
       return ("[%d]" % (self.row_number - 1),
-              "(%s)" % ",".join(nice_str(row["data"][idx], row["data"][idx + 1] - row["data"][idx] - 1)
-                                for idx in range(self.field_count)))
+              "(%s)" % ",".join(
+                  nice_str(row["data"][idx],
+                           row["data"][idx + 1] - row["data"][idx] - 1)
+                  for idx in range(self.field_count)))
 
 class MysqlFieldPrinter(object):
   def __init__(self, val):
@@ -113,4 +115,4 @@ def build_pretty_printer():
   pp.add_printer('MYSQL_RES', r'^st_mysql_res$', MysqlResultPrinter)
   pp.add_printer('MYSQL_FIELD', r'^st_mysql_field$', MysqlFieldPrinter)
   return pp
-                                         
+

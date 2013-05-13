@@ -30,8 +30,12 @@ class MysqlPrinter(object):
   def to_string(self):
     return ("MYSQL connection to %s:%s as %s of db %s, "
             "with client status %s and server status %s" %
-            (nice_str(self.val["host"]), self.val["port"], nice_str(self.val["user"]),
-             nice_str(self.val["db"]), self.val["status"], self.val["server_status"]))
+            (nice_str(self.val["host"]),
+             self.val["port"],
+             nice_str(self.val["user"]),
+             nice_str(self.val["db"]),
+             self.val["status"],
+             self.val["server_status"]))
 
   def display_hint(self):
     return "array"
@@ -45,8 +49,23 @@ class MysqlResultPrinter(object):
     for i in range(int(self.val["data"]["fields"])):
       fields.append(self.val["fields"][i])
 
-    return ("MYSQ_RES of %d rows; fields = { %s }" %
-            (self.val["row_count"], ", ".join(str(f) for f in fields)))
+    row = self.val["data"]["data"]
+    cursor_idx = 0
+    while row and row["data"] != self.val["current_row"]:
+        cursor_idx += 1
+        row = row["next"]
+    if not row:
+        cursor_idx = "(invalid cursor)"
+
+    if self.val["handle"]:
+        fetch_type = "use_results"
+    else:
+        fetch_type = "store_results"
+
+    return ("MYSQ_RES of %d rows, type %s, eof %s; cursor is at row %s; "
+            "fields = { %s }" %
+            (self.val["row_count"], fetch_type, bool(self.val["eof"]),
+             cursor_idx, ", ".join(str(f) for f in fields)))
 
   def display_hint(self):
     return "array"
